@@ -209,6 +209,7 @@ public class SampleMecanumDrive extends MecanumDrive {
     public void followTrajectoryAsync(Trajectory trajectory) {
         follower.followTrajectory(trajectory);
         mode = Mode.FOLLOW_TRAJECTORY;
+
     }
 
     public void followTrajectory(Trajectory trajectory) {
