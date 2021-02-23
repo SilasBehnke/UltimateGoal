@@ -225,6 +225,8 @@ public class SampleMecanumDrive extends MecanumDrive {
             case IDLE:
                 return new Pose2d();
         }
+
+
         throw new AssertionError();
     }
 
