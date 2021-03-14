@@ -10,6 +10,7 @@ import com.qualcomm.hardware.bosch.BNO055IMU;
 import com.qualcomm.hardware.lynx.LynxI2cDeviceSynchV1;
 import com.qualcomm.hardware.rev.Rev2mDistanceSensor;
 import com.qualcomm.hardware.rev.RevColorSensorV3;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
@@ -39,8 +40,7 @@ public abstract class Functions {
     private DcMotorEx FlyMotor2;
 
     private DcMotor IntakeMotor;
-    private DcMotor BeltMotor;
-    private DcMotor WobbleMotor;
+    private DcMotor TransferMotor;
 
     private DistanceSensor TheDS;
     private DistanceSensor TheSideDS;
@@ -54,7 +54,6 @@ public abstract class Functions {
     private Servo wobble3;
     private Servo wobble4;
     private Servo intakeDropper;
-    private Servo Flywheel;
     private Servo RingBlocker;
 
 
@@ -81,11 +80,11 @@ public abstract class Functions {
         BLM = hardwareMap.get(DcMotor.class, "BLM");
         BRM = hardwareMap.get(DcMotor.class, "BRM");
         IntakeMotor = hardwareMap.get(DcMotor.class, "Intake");
-        BeltMotor = hardwareMap.get(DcMotor.class, "Belt");
-        WobbleMotor = hardwareMap.get(DcMotor.class, "Wobble");
-        WobbleMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        TransferMotor = hardwareMap.get(DcMotor.class, "Transfer");
+
 
         RingBlocker = hardwareMap.get(Servo.class, "RingBlocker");
+
 
         FLM.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         FRM.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
@@ -99,10 +98,9 @@ public abstract class Functions {
 
 
 
-
-        //FlyMotor = hardwareMap.get(DcMotorEx.class, "Fly");
-        //FlyMotor2 = hardwareMap.get(DcMotorEx.class, "Fly2");
-        //FlyMotor2.setDirection(DcMotorEx.Direction.REVERSE);
+        FlyMotor = hardwareMap.get(DcMotorEx.class, "Fly");
+        FlyMotor2 = hardwareMap.get(DcMotorEx.class, "Fly2");
+        FlyMotor2.setDirection(DcMotorEx.Direction.REVERSE);
 
 
         FLM.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE); //if we set the power to 0 we want the motors to stop
@@ -208,11 +206,7 @@ public abstract class Functions {
             UpdateTelemetry();
         }
     }
-    // public void FlyPower(double tickssec){
-    //    double error = 0, P = 1;
-    //  error = tickssec - FlyMotor.getVelocity();
-    //FlyMotor.setVelocity((P*error)+tickssec);
-    // }
+
 
 
     private void ResetAngle() {
@@ -295,94 +289,113 @@ public abstract class Functions {
         }
         return null;
     }
+    public void FlyPower(double tickssec){
+        double error1, error2, P1 = 1,P2 = 1;
+        error1 = tickssec - FlyMotor.getVelocity();
+        error2 = tickssec - FlyMotor2.getVelocity();
+        FlyMotor.setVelocity((P1*error1)+tickssec);
+        FlyMotor2.setVelocity((P2*error2)+tickssec);
 
+    }
     public void TeleOp(Gamepad gamepad1) {
         FLM.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         FRM.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         BLM.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         BRM.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        double forward = gamepad1.left_stick_y;
-        double strafe = gamepad1.right_stick_x;
-        double turn = -gamepad1.left_stick_x;
+        double forward;
+        double strafe;
+        double turn;
         boolean intake = false, ramp = false;
         //Intake Code
-        boolean previousPressIntake = false, previousPressBelt = false, previousPressWobble = false, previousPressRingBlock;
-        boolean isIntaking = false, isBelt = false;
+        boolean previousPressIntake = false, previousPressFly = false, previousPressPush = false, previousPressRingBlock;
+        boolean isIntaking = false, isFly = false, isPush = false;
         int stoneLevel = 0;
-
+        double Fly1velocity1;
+        double Fly2velocity;
         while (CanMove()) {
+            AddToTelemetry("RingBlocker", String.valueOf(RingBlocker.getPosition()));
             forward = -gamepad1.left_stick_y;
             strafe = gamepad1.right_stick_x;
             turn = -gamepad1.left_stick_x;
-            //Intake
             AddToTelemetry("Intake", String.valueOf(gamepad1.b));
-            AddToTelemetry("RB", String.valueOf(gamepad1.right_bumper));
-            AddToTelemetry("Belt", String.valueOf(gamepad1.y));
+            AddToTelemetry("Flywheels", String.valueOf(gamepad1.y));
 
-
-            IntakeMotor.setPower(gamepad1.b == false ? 0 : 1);
-/*            if (gamepad1.b) {
+            //Intake
+           // IntakeMotor.setPower(gamepad1.b == true ? 1 : 0);
+            if (gamepad1.b) {
                 if (previousPressIntake != gamepad1.b) {
                     if (!isIntaking) {
-                        IntakeMotor.setPower(1);
+                        IntakeMotor.setPower(-1);
+                        TransferMotor.setPower(-1);
                         isIntaking = true;
                     } else {
                         IntakeMotor.setPower(0);
+                        TransferMotor.setPower(0);
                         isIntaking = false;
                     }
                     previousPressIntake = true;
                 }
             } else {
-                previousPressBelt = false;
-            }*/
-            //Belt
-            if (gamepad1.y) {
-                if (previousPressBelt != gamepad1.y) {
-                    if (!isBelt) {
-                        BeltMotor.setPower(-1);
-                        isBelt = true;
+                previousPressIntake = false;
+            }
+            if (gamepad1.b) {
+                if (previousPressIntake != gamepad1.b) {
+                    if (!isIntaking) {
+                        IntakeMotor.setPower(-1);
+                        TransferMotor.setPower(-1);
+                        isIntaking = true;
                     } else {
-                        BeltMotor.setPower(0);
-                        isBelt = false;
+                        IntakeMotor.setPower(0);
+                        TransferMotor.setPower(0);
+                        isIntaking = false;
                     }
-                    previousPressBelt = true;
+                    previousPressIntake = true;
                 }
             } else {
-                previousPressBelt = false;
+                previousPressIntake = false;
             }
-            //Wobble
-            if (gamepad1.x) {
-                if (previousPressWobble != gamepad1.x) {
 
-                    UnloadWobble();
-
-                    previousPressWobble = true;
+            //FLywheels
+            if (gamepad1.y) {
+                if (previousPressFly != gamepad1.y) {
+                    if (!isFly) {
+                        FlyMotor2.setPower(1);
+                        FlyMotor.setPower(1);
+                        isFly = true;
+                    } else {
+                        FlyMotor2.setPower(0);
+                        FlyMotor.setPower(0);
+                        isFly = false;
+                    }
+                    previousPressFly = true;
                 }
             } else {
-                previousPressWobble = false;
+                previousPressFly = false;
             }
-            //RingBlocker
-            RingBlocker.setPosition(gamepad1.right_bumper == true ? .5 : 1);
-/*
+            //RingFlicks
             if (gamepad1.right_bumper) {
-                if (previousPressWobble != gamepad1.right_bumper) {
-
-                    RingBlocker();
-
-                    previousPressWobble = true;
+                if (previousPressPush != gamepad1.right_bumper) {
+                    if (!isPush) {
+                        RingBlocker.setPosition(.5);
+                        isPush = true;
+                    } else {
+                        RingBlocker.setPosition(.9);
+                        isPush = false;
+                    }
+                    previousPressPush = true;
                 }
             } else {
-                previousPressWobble = false;
-            }*/
+                previousPressPush = false;
+            }
 
-            AddToTelemetry("wobble",String.valueOf(WobbleMotor.getCurrentPosition()));
+
             AddToTelemetry("isIntaking", String.valueOf(isIntaking));
             AddToTelemetry("stone", String.valueOf(stoneLevel));
 
 
-            double FLMpower = (forward - strafe - turn);// * NormPower;
+            double FLMpower = (forward + strafe - turn);// * NormPower;
             double FRMpower = (forward - strafe + turn);// * NormPower;
-            double BLMpower = (forward + strafe - turn);// * NormPower;
+            double BLMpower = (forward - strafe - turn);// * NormPower;
             double BRMpower = (forward + strafe + turn);// * NormPower;
             AddToTelemetry("FLM", String.valueOf(FLMpower));
             AddToTelemetry("FRM", String.valueOf(FRMpower));
@@ -438,17 +451,6 @@ public abstract class Functions {
             EncoderPID(-84, 24);
         }
     }
-    public void UnloadWobble(){
-        if (WobbleMotor.getCurrentPosition() < 50) WobbleMotor.setTargetPosition(100);
-        else if (WobbleMotor.getCurrentPosition() > 50) WobbleMotor.setTargetPosition(0);
-        WobbleMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-    }
-    public void RingBlocker(){
-        if (RingBlocker.getPosition() < .5) RingBlocker.setPosition(1);
-        else if (RingBlocker.getPosition() > .75) RingBlocker.setPosition(.5);
-
-    }
-
 
     public void ParkOnTape() {
  Reverse(84,0);    }

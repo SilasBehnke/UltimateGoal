@@ -55,7 +55,6 @@ public class ZoneandPark extends LinearOpMode {
         rings = RingDetect.getRingPosition();
         Function.CheckRandomization(rings);
         Function.ParkOnTape();
-        Function.UnloadWobble();
 
         sleep(5000);
         //Function.ParkOnTape();
